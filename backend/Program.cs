@@ -1,18 +1,34 @@
 using System.Collections.Concurrent;
 using System.Net.WebSockets;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Shelly.Backend.Data;
+using Shelly.Backend.Entities;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddDbContext<ShellyDbContext>(opt =>
+    opt.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
+
+builder.Services
+    .AddIdentityCore<User>(opt =>
+    {
+        opt.Password.RequiredLength = 8;
+        opt.User.RequireUniqueEmail = true;
+    })
+    .AddEntityFrameworkStores<ShellyDbContext>();
+
 var app = builder.Build();
 
 app.UseWebSockets();
 
-var rooms = new ConcurrentDictionary<string, Room>();
+var rooms = new ConcurrentDictionary<string, TerminalRoom>();
 
 app.Map("/ws/agent/{room}", async (HttpContext ctx, string room) =>
 {
     if (!ctx.WebSockets.IsWebSocketRequest) { ctx.Response.StatusCode = 400; return; }
     var ws = await ctx.WebSockets.AcceptWebSocketAsync();
-    var r = rooms.GetOrAdd(room, _ => new Room(room));
+    var r = rooms.GetOrAdd(room, _ => new TerminalRoom(room));
     await r.AttachAgentAsync(ws);
 });
 
@@ -20,13 +36,13 @@ app.Map("/ws/terminal/{room}", async (HttpContext ctx, string room) =>
 {
     if (!ctx.WebSockets.IsWebSocketRequest) { ctx.Response.StatusCode = 400; return; }
     var ws = await ctx.WebSockets.AcceptWebSocketAsync();
-    var r = rooms.GetOrAdd(room, _ => new Room(room));
+    var r = rooms.GetOrAdd(room, _ => new TerminalRoom(room));
     await r.AttachBrowserAsync(ws);
 });
 
 app.Run();
 
-sealed class Room
+sealed class TerminalRoom
 {
     public string Name { get; }
     private WebSocket? _agent;
@@ -34,7 +50,7 @@ sealed class Room
     private readonly ConcurrentDictionary<Guid, WebSocket> _browsers = new();
     private readonly ConcurrentDictionary<Guid, SemaphoreSlim> _browserSendLocks = new();
 
-    public Room(string name) { Name = name; }
+    public TerminalRoom(string name) { Name = name; }
 
     public async Task AttachAgentAsync(WebSocket ws)
     {

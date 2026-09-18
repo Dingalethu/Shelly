@@ -1,0 +1,50 @@
+# ===== Node / Vite =====
+node_modules/
+dist/
+.vite/
+*.local
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.eslintcache
+
+# ===== .NET =====
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.vscode/
+*.userprefs
+project.lock.json
+artifacts/
+
+# ===== Go =====
+# (nothing to ignore by default — go.sum is committed)
+*.exe
+*.test
+*.out
+agent/ui/dist/
+
+# ===== Environment / secrets =====
+.env
+.env.*
+!.env.example
+*.pfx
+*.pem
+*.key
+
+# ===== Editor =====
+.idea/
+*.swp
+*.swo
+*~
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== Local Shelly data =====
+.shelly/
+*.gz

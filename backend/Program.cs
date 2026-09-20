@@ -4,6 +4,10 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Shelly.Backend.Data;
 using Shelly.Backend.Entities;
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using Shelly.Backend.Auth;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,15 +18,53 @@ builder.Services
     .AddIdentityCore<User>(opt =>
     {
         opt.Password.RequiredLength = 8;
+        opt.Password.RequireDigit = true;
+        opt.Password.RequireLowercase = false;
+        opt.Password.RequireUppercase = false;
+        opt.Password.RequireNonAlphanumeric = false;
         opt.User.RequireUniqueEmail = true;
     })
     .AddEntityFrameworkStores<ShellyDbContext>();
 
+// JWT settings
+builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
+builder.Services.AddSingleton<JwtTokenService>();
+
+// Auth
+var jwtSection = builder.Configuration.GetSection("Jwt");
+var jwtKey = jwtSection["Key"] ?? "";
+var jwtIssuer = jwtSection["Issuer"] ?? "";
+var jwtAudience = jwtSection["Audience"] ?? "";
+
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(opts =>
+    {
+        opts.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = jwtIssuer,
+            ValidateAudience = true,
+            ValidAudience = jwtAudience,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromMinutes(1),
+        };
+    });
+
+builder.Services.AddAuthorization();
+builder.Services.AddControllers();
+
 var app = builder.Build();
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.UseWebSockets();
 
 var rooms = new ConcurrentDictionary<string, TerminalRoom>();
+
+app.MapControllers();
 
 app.Map("/ws/agent/{room}", async (HttpContext ctx, string room) =>
 {

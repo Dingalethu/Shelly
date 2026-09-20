@@ -58,11 +58,27 @@ builder.Services.AddAuthorization();
 builder.Services.AddControllers();
 builder.Services.AddScoped<WorkspaceService>();
 
+builder.Services.AddCors(opts =>
+{
+    opts.AddPolicy("Frontend", policy =>
+    {
+        policy
+            .WithOrigins(
+                "http://localhost:5173",
+                "http://127.0.0.1:5173")
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
+    });
+});
+
 var app = builder.Build();
+app.UseCors("Frontend");
+app.UseWebSockets();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.UseWebSockets();
+
 
 var rooms = new ConcurrentDictionary<string, TerminalRoom>();
 

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Shelly.Backend.Auth;
 using Shelly.Backend.Entities;
+using Shelly.Backend.Services;
 
 namespace Shelly.Backend.Controllers;
 
@@ -12,11 +13,13 @@ public class AuthController : ControllerBase
 {
     private readonly UserManager<User> _users;
     private readonly JwtTokenService _tokens;
+    private readonly WorkspaceService _workspaces;
 
-    public AuthController(UserManager<User> users, JwtTokenService tokens)
+    public AuthController(UserManager<User> users, JwtTokenService tokens, WorkspaceService workspaces)
     {
         _users = users;
         _tokens = tokens;
+        _workspaces = workspaces;
     }
 
     [HttpPost("register")]
@@ -43,6 +46,8 @@ public class AuthController : ControllerBase
         if (!result.Succeeded)
             return BadRequest(new { error = "registration failed", details = result.Errors.Select(e => e.Description) });
 
+        await _workspaces.CreateAsync($"{user.DisplayName}'s Workspace", user.Id);
+        
         var (token, expiresAt) = _tokens.CreateToken(user);
         return Ok(new AuthResponse(token, expiresAt,
             new UserDto(user.Id, user.Email!, user.DisplayName, user.AvatarUrl)));
